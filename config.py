@@ -3,11 +3,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 class Config:
     def __init__(self):
         self.API_ID = int(getenv("API_ID", 0))
         self.API_HASH = getenv("API_HASH")
-
         self.BOT_TOKEN = getenv("BOT_TOKEN")
         self.MONGO_URL = getenv("MONGO_URL")
 
@@ -18,6 +18,12 @@ class Config:
         self.QUEUE_LIMIT = int(getenv("QUEUE_LIMIT", 20))
         self.PLAYLIST_LIMIT = int(getenv("PLAYLIST_LIMIT", 20))
 
+        # Telegram MTProto istemcisi için üst sınır 2 GB. Daha düşük değer
+        # istenirse Heroku Config Vars üzerinden DOWNLOAD_LIMIT_MB ayarlanabilir.
+        self.DOWNLOAD_LIMIT_MB = max(1, min(int(getenv("DOWNLOAD_LIMIT_MB", 2000)), 2000))
+        self.DOWNLOAD_LIMIT_BYTES = self.DOWNLOAD_LIMIT_MB * 1024 * 1024
+        self.DOWNLOAD_TTL_HOURS = max(1, int(getenv("DOWNLOAD_TTL_HOURS", 24)))
+
         self.SESSION1 = getenv("SESSION", None)
         self.SESSION2 = getenv("SESSION2", None)
         self.SESSION3 = getenv("SESSION3", None)
@@ -27,14 +33,12 @@ class Config:
 
         self.AUTO_LEAVE: bool = getenv("AUTO_LEAVE", "False").lower() == "true"
         self.AUTO_END: bool = getenv("AUTO_END", "False").lower() == "true"
-    
         self.THUMB_GEN: bool = getenv("THUMB_GEN", "True").lower() == "true"
         self.VIDEO_PLAY: bool = getenv("VIDEO_PLAY", "True").lower() == "true"
-
         self.LANG_CODE = getenv("LANG_CODE", "en")
 
         self.COOKIES_URL = [
-            url for url in getenv("COOKIES_URL", "").split(" ")
+            url for url in getenv("COOKIES_URL", "").split()
             if url and "batbin.me" in url
         ]
         self.DEFAULT_THUMB = getenv("DEFAULT_THUMB", "https://te.legra.ph/file/3e40a408286d4eda24191.jpg")
@@ -43,8 +47,7 @@ class Config:
 
     def check(self):
         missing = [
-            var
-            for var in ["API_ID", "API_HASH", "BOT_TOKEN", "MONGO_URL", "LOGGER_ID", "OWNER_ID", "SESSION1"]
+            var for var in ["API_ID", "API_HASH", "BOT_TOKEN", "MONGO_URL", "LOGGER_ID", "OWNER_ID", "SESSION1"]
             if not getattr(self, var)
         ]
         if missing:
