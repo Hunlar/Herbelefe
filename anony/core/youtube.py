@@ -150,13 +150,17 @@ class YouTube:
         if cookie:
             opts["cookiefile"] = cookie
         if video:
-            opts.update({
-                "format": "best[height<=720][ext=mp4]/best[height<=720]/best",
-                "merge_output_format": "mp4",
-            })
+            # Prefer separate video/audio streams up to 720p, but keep broad
+            # fallbacks for videos whose available formats differ.
+            format_candidates = [
+                "bv*[height<=720]+ba/b[height<=720]/b",
+                "best[height<=720]/best",
+                "best",
+            ]
+            opts.update({"merge_output_format": "mp4"})
         elif audio_format:
+            format_candidates = ["bestaudio/best"]
             opts.update({
-                "format": "bestaudio/best",
                 "postprocessors": [{
                     "key": "FFmpegExtractAudio",
                     "preferredcodec": audio_format,
@@ -164,26 +168,49 @@ class YouTube:
                 }],
             })
         else:
-            opts.update({"format": "bestaudio[ext=webm]/bestaudio", "postprocessors": []})
+            format_candidates = ["bestaudio/best"]
+            opts.update({"postprocessors": []})
 
         def _download():
-            try:
-                with yt_dlp.YoutubeDL(opts) as ydl:
-                    info = ydl.extract_info(url, download=True)
-                    prepared = Path(ydl.prepare_filename(info))
-                    candidates = [prepared]
-                    if video and prepared.suffix.lower() != ".mp4":
-                        candidates.insert(0, prepared.with_suffix(".mp4"))
-                    elif audio_format and prepared.suffix.lower() != f".{audio_format}":
-                        candidates.insert(0, prepared.with_suffix(f".{audio_format}"))
-                    for candidate in candidates:
-                        if candidate.exists() and candidate.stat().st_size:
-                            return str(candidate)
-                    # yt-dlp bazen birleştirme sonrası uzantıyı değiştirir.
-                    matches = sorted(self.download_dir.glob(f"{video_id}.*"), key=lambda p: p.stat().st_mtime, reverse=True)
-                    return str(matches[0]) if matches and matches[0].stat().st_size else None
-            except Exception as ex:
-                logger.warning("YouTube download failed (%s): %s", video_id, ex)
-                return None
+            last_error = None
+            for format_selector in format_candidates:
+                attempt_opts = dict(opts)
+                attempt_opts["format"] = format_selector
+                try:
+                    with yt_dlp.YoutubeDL(attempt_opts) as ydl:
+                        info = ydl.extract_info(url, download=True)
+                        if not info:
+                            continue
+                        prepared = Path(ydl.prepare_filename(info))
+                        candidates = [prepared]
+                        if video and prepared.suffix.lower() != ".mp4":
+                            candidates.insert(0, prepared.with_suffix(".mp4"))
+                        elif audio_format and prepared.suffix.lower() != f".{audio_format}":
+                            candidates.insert(0, prepared.with_suffix(f".{audio_format}"))
+                        for candidate in candidates:
+                            if candidate.exists() and candidate.stat().st_size:
+                                return str(candidate)
+                        # yt-dlp may change the extension after merging or
+                        # post-processing, so inspect files matching this ID.
+                        matches = sorted(
+                            self.download_dir.glob(f"{video_id}.*"),
+                            key=lambda p: p.stat().st_mtime,
+                            reverse=True,
+                        )
+                        if matches and matches[0].is_file() and matches[0].stat().st_size:
+                            return str(matches[0])
+                except Exception as ex:
+                    last_error = ex
+                    message = str(ex)
+                    # Retry only format-selection failures with a broader
+                    # selector. Other errors (private/deleted/network/etc.)
+                    # will not be fixed by changing the format.
+                    if "Requested format is not available" not in message:
+                        break
+
+            if last_error:
+                logger.warning("YouTube download failed (%s): %s", video_id, last_error)
+            return None
 
         return await asyncio.to_thread(_download)
+        
