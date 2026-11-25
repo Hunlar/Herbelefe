@@ -58,11 +58,7 @@ class TgCall(PyTgCalls):
     ) -> None:
         client = await db.get_assistant(chat_id)
         _lang = await lang.get_lang(chat_id)
-        _thumb = (
-            await thumb.generate(media)
-            if isinstance(media, Track)
-            else config.DEFAULT_THUMB
-        ) if config.THUMB_GEN else None
+        _thumb = None
 
         if not media.file_path:
             await message.edit_text(_lang["error_no_file"].format(config.SUPPORT_CHAT))
@@ -86,6 +82,11 @@ class TgCall(PyTgCalls):
                 stream=stream,
                 config=types.GroupCallConfig(auto_start=False),
             )
+            if config.THUMB_GEN:
+                try:
+                    _thumb = await thumb.generate(media) if isinstance(media, Track) else config.DEFAULT_THUMB
+                except Exception as thumb_error:
+                    logger.warning("Thumbnail generation skipped: %s", thumb_error)
             if not seek_time:
                 media.time = 1
                 await db.add_call(chat_id)
