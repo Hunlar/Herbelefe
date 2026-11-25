@@ -202,10 +202,10 @@ class YouTube:
         if cookie:
             cookie_opts = dict(opts)
             cookie_opts["cookiefile"] = cookie
-            cookie_opts["extractor_args"] = {
-                "youtube": {"player_client": ["web_embedded"]}
-            }
-            configurations.append(("cookie-web-embedded", cookie_opts))
+            # Keep yt-dlp's maintained default client selection here. Forcing
+            # web_embedded restricts results to embeddable videos and can leave
+            # ordinary songs with no downloadable audio formats.
+            configurations.append(("cookie-default-clients", cookie_opts))
 
         def _download():
             last_error = None
