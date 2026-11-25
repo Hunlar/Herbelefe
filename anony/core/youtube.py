@@ -92,19 +92,46 @@ class YouTube:
         if self.cookies:
             logger.info("YouTube cookies downloaded successfully.")
 
+    @staticmethod
+    def _views(value) -> int:
+        text = str(value or "0").lower().replace(",", ".").replace(" ", "")
+        match = re.search(r"([0-9.]+)([kmb]?)", text)
+        if not match:
+            return 0
+        amount = float(match.group(1))
+        return int(amount * {"k": 1_000, "m": 1_000_000, "b": 1_000_000_000}.get(match.group(2), 1))
+
     async def search(self, query: str, m_id: int, video: bool = False) -> Track | None:
         try:
-            results = await VideosSearch(query, limit=1, with_live=False).next()
-            if results and results.get("result"):
-                data = results["result"][0]
-                thumbs = data.get("thumbnails") or [{}]
-                return Track(
-                    id=data.get("id"), channel_name=data.get("channel", {}).get("name"),
-                    duration=data.get("duration"), duration_sec=utils.to_seconds(data.get("duration")),
-                    message_id=m_id, title=(data.get("title") or "Unknown")[:25],
-                    thumbnail=(thumbs[-1].get("url") or "").split("?")[0],
-                    url=data.get("link"), view_count=data.get("viewCount", {}).get("short"), video=video,
-                )
+            results = await VideosSearch(query, limit=10, with_live=False).next()
+            candidates = (results or {}).get("result") or []
+            if not candidates:
+                return None
+
+            def score(data):
+                title = (data.get("title") or "").lower()
+                wanted = re.findall(r"[a-z0-9çğıöşü]+", query.lower())
+                actual = set(re.findall(r"[a-z0-9çğıöşü]+", title))
+                overlap = sum(1 for word in wanted if word in actual)
+                normalized_title = " ".join(re.findall(r"[a-z0-9çğıöşü]+", title))
+                exact = 1000 if " ".join(wanted) == normalized_title else 0
+                views = self._views((data.get("viewCount") or {}).get("short"))
+                return exact + overlap * 100 + min(views, 99_000_000) / 1_000_000
+
+            data = max(candidates, key=score)
+            thumbs = data.get("thumbnails") or [{}]
+            duration = data.get("duration") or "00:00"
+            try:
+                duration_sec = utils.to_seconds(duration)
+            except Exception:
+                duration_sec = 0
+            return Track(
+                id=data.get("id"), channel_name=data.get("channel", {}).get("name"),
+                duration=duration, duration_sec=duration_sec,
+                message_id=m_id, title=(data.get("title") or "Unknown")[:180],
+                thumbnail=(thumbs[-1].get("url") or "").split("?")[0],
+                url=data.get("link"), view_count=(data.get("viewCount") or {}).get("short"), video=video,
+            )
         except Exception as ex:
             logger.warning("YouTube search failed: %s", ex)
         return None
