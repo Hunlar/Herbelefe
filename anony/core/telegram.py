@@ -2,7 +2,6 @@
 # Licensed under the MIT License.
 
 import asyncio
-import os
 import time
 from pathlib import Path
 
@@ -92,7 +91,7 @@ class Telegram:
         try:
             download_dir = Path("downloads")
             download_dir.mkdir(parents=True, exist_ok=True)
-            file_path = download_dir / f"{file_id}.{file_ext}"
+            file_path = (download_dir / f"{file_id}_{msg.chat.id}_{msg.id}.{file_ext}").resolve()
 
             if file_path.exists() and file_path.stat().st_size > 0:
                 return Media(
