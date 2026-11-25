@@ -8,6 +8,7 @@ from pathlib import Path
 from pyrogram import filters, types
 
 from anony import app, config, lang, tg
+from anony.helpers._custom_emoji import random_pack_emoji, pack_caption_entities
 
 DOWNLOAD_DIR = Path("downloads")
 
@@ -83,11 +84,14 @@ async def media_download_handler(_, message: types.Message):
             )
 
         await status.edit_text("📤 Dosya Telegram'a gönderiliyor...")
+        emoji, entity = await random_pack_emoji()
+        caption = f"{emoji} {source_path.name if command == 'video' else 'Ses dosyası'}\nProd By @Sancakmain"
         if command == "video":
             await app.send_video(
                 chat_id=message.chat.id,
                 video=str(output_path),
-                caption=f"🎬 {source_path.name}",
+                caption=caption,
+                caption_entities=pack_caption_entities(entity),
                 reply_to_message_id=source_message.id,
                 supports_streaming=True,
             )
@@ -96,7 +100,8 @@ async def media_download_handler(_, message: types.Message):
                 chat_id=message.chat.id,
                 audio=str(output_path),
                 title=source_path.stem[:64],
-                caption="🎧 Ses dosyası",
+                caption=caption,
+                caption_entities=pack_caption_entities(entity),
                 reply_to_message_id=source_message.id,
             )
         await status.delete()
