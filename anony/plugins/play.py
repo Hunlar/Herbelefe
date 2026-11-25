@@ -9,6 +9,7 @@ from pyrogram import filters, types
 
 from anony import anon, app, config, db, lang, queue, tg, yt
 from anony.helpers import buttons, utils
+from anony.helpers._custom_emoji import random_pack_emoji, pack_caption_entities
 from anony.helpers._play import checkUB
 
 
@@ -35,7 +36,8 @@ async def play_hndlr(
     video: bool = False,
     url: str = None,
 ) -> None:
-    sent = await m.reply_text(m.lang["play_searching"])
+    search_emoji, search_entity = await random_pack_emoji()
+    sent = await m.reply_text(f"{search_emoji} {m.lang['play_searching']}", entities=pack_caption_entities(search_entity))
     file = None
     mention = m.from_user.mention
     media = tg.get_media(m.reply_to_message) if m.reply_to_message else None
