@@ -87,7 +87,6 @@ def checkUB(play):
                         )
 
                 umm = await m.reply_text(m.lang["play_invite"].format(app.name))
-                await asyncio.sleep(2)
                 try:
                     await client.join_chat(invite_link)
                 except errors.UserAlreadyParticipant:
