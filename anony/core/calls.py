@@ -15,6 +15,7 @@ from pytgcalls.pytgcalls_session import PyTgCallsSession
 from anony import (app, config, db, lang, logger,
                    queue, thumb, userbot, yt)
 from anony.helpers import Media, Track, buttons
+from anony.helpers._custom_emoji import random_pack_emoji
 
 
 class TgCall(PyTgCalls):
@@ -96,6 +97,8 @@ class TgCall(PyTgCalls):
                     media.duration,
                     media.user,
                 )
+                play_emoji, _ = await random_pack_emoji()
+                text = f"{play_emoji} {text}"
                 keyboard = buttons.controls(chat_id)
                 try:
                     if _thumb:
