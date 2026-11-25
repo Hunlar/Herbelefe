@@ -8,7 +8,6 @@ RUN apt-get update -y \
     && rm -rf /var/lib/apt/lists/* \
     && curl -fsSL https://deno.land/install.sh | sh
 
-
 ENV DENO_INSTALL="/root/.deno"
 ENV PATH="${DENO_INSTALL}/bin:${PATH}"
 
@@ -17,7 +16,9 @@ ENV PATH="/root/.local/bin:${PATH}"
 
 COPY pyproject.toml uv.lock ./
 
-RUN uv sync --frozen
+# Refresh yt-dlp at every image build so YouTube extractor fixes are not
+# trapped behind the old frozen lockfile.
+RUN uv lock --upgrade-package yt-dlp && uv sync --frozen
 
 COPY . .
 
