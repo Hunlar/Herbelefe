@@ -19,7 +19,7 @@ COPY pyproject.toml uv.lock ./
 # Install the exact locked application dependencies first, then refresh
 # yt-dlp independently so the committed uv.lock does not need regeneration.
 RUN uv sync --frozen \
-    && uv pip install --python .venv/bin/python --upgrade "yt-dlp[default]"
+    && uv pip install --python .venv/bin/python --upgrade --pre "yt-dlp[default]"
 
 COPY . .
 
