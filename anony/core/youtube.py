@@ -171,16 +171,10 @@ class YouTube:
             "no_warnings": True, "overwrites": False,
             "logger": DummyLogger(), "nocheckcertificate": True,
             "remote_components": ["ejs:github"],
-            # Let the current yt-dlp release select its maintained YouTube
-            # player clients; hard-coding clients becomes stale as YouTube changes.
             "retries": 5, "fragment_retries": 5, "continuedl": True,
             "max_filesize": config.DOWNLOAD_LIMIT_BYTES,
         }
-        if cookie:
-            opts["cookiefile"] = cookie
         if video:
-            # Prefer separate video/audio streams up to 720p, but keep broad
-            # fallbacks for videos whose available formats differ.
             format_candidates = [
                 "bv*[height<=720]+ba/b[height<=720]/b",
                 "best[height<=720]/best",
@@ -200,41 +194,56 @@ class YouTube:
             format_candidates = ["bestaudio/best"]
             opts.update({"postprocessors": []})
 
+        # Public YouTube videos are attempted WITHOUT account cookies first.
+        # YouTube has recently returned "The page needs to be reloaded" when
+        # cookie-authenticated requests are downgraded to tv_downgraded.
+        # Only retry with cookies if the normal public-video request fails.
+        configurations = [("anonymous", dict(opts))]
+        if cookie:
+            cookie_opts = dict(opts)
+            cookie_opts["cookiefile"] = cookie
+            cookie_opts["extractor_args"] = {
+                "youtube": {"player_client": ["web_embedded"]}
+            }
+            configurations.append(("cookie-web-embedded", cookie_opts))
+
         def _download():
             last_error = None
-            for format_selector in format_candidates:
-                attempt_opts = dict(opts)
-                attempt_opts["format"] = format_selector
-                try:
-                    with yt_dlp.YoutubeDL(attempt_opts) as ydl:
-                        info = ydl.extract_info(url, download=True)
-                        if not info:
+            for config_name, config_opts in configurations:
+                for format_selector in format_candidates:
+                    attempt_opts = dict(config_opts)
+                    attempt_opts["format"] = format_selector
+                    try:
+                        with yt_dlp.YoutubeDL(attempt_opts) as ydl:
+                            info = ydl.extract_info(url, download=True)
+                            if not info:
+                                continue
+                            prepared = Path(ydl.prepare_filename(info))
+                            candidates = [prepared]
+                            if video and prepared.suffix.lower() != ".mp4":
+                                candidates.insert(0, prepared.with_suffix(".mp4"))
+                            elif audio_format and prepared.suffix.lower() != f".{audio_format}":
+                                candidates.insert(0, prepared.with_suffix(f".{audio_format}"))
+                            for candidate in candidates:
+                                if candidate.exists() and candidate.stat().st_size:
+                                    return str(candidate)
+                            matches = sorted(
+                                self.download_dir.glob(f"{video_id}.*"),
+                                key=lambda p: p.stat().st_mtime,
+                                reverse=True,
+                            )
+                            if matches and matches[0].is_file() and matches[0].stat().st_size:
+                                return str(matches[0])
+                    except Exception as ex:
+                        last_error = ex
+                        message = str(ex)
+                        if "Requested format is not available" in message:
                             continue
-                        prepared = Path(ydl.prepare_filename(info))
-                        candidates = [prepared]
-                        if video and prepared.suffix.lower() != ".mp4":
-                            candidates.insert(0, prepared.with_suffix(".mp4"))
-                        elif audio_format and prepared.suffix.lower() != f".{audio_format}":
-                            candidates.insert(0, prepared.with_suffix(f".{audio_format}"))
-                        for candidate in candidates:
-                            if candidate.exists() and candidate.stat().st_size:
-                                return str(candidate)
-                        # yt-dlp may change the extension after merging or
-                        # post-processing, so inspect files matching this ID.
-                        matches = sorted(
-                            self.download_dir.glob(f"{video_id}.*"),
-                            key=lambda p: p.stat().st_mtime,
-                            reverse=True,
+                        logger.warning(
+                            "YouTube download attempt failed (%s, %s): %s",
+                            video_id, config_name, ex,
                         )
-                        if matches and matches[0].is_file() and matches[0].stat().st_size:
-                            return str(matches[0])
-                except Exception as ex:
-                    last_error = ex
-                    message = str(ex)
-                    # Retry only format-selection failures with a broader
-                    # selector. Other errors (private/deleted/network/etc.)
-                    # will not be fixed by changing the format.
-                    if "Requested format is not available" not in message:
+                        # Try the next authentication strategy (if configured).
                         break
 
             if last_error:
