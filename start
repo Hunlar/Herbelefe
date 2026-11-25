@@ -1,1 +1,6 @@
-uv run python3 -m anony
+#!/usr/bin/env bash
+set -e
+# Use the image's prepared virtualenv directly. "uv run" performs a project
+# sync at runtime and removes the extra yt-dlp PO-token plugin installed
+# during the Docker build.
+exec .venv/bin/python -m anony
