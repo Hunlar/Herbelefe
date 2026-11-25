@@ -16,9 +16,10 @@ ENV PATH="/root/.local/bin:${PATH}"
 
 COPY pyproject.toml uv.lock ./
 
-# Refresh yt-dlp at every image build so YouTube extractor fixes are not
-# trapped behind the old frozen lockfile.
-RUN uv lock --upgrade-package yt-dlp && uv sync --frozen
+# Install the exact locked application dependencies first, then refresh
+# yt-dlp independently so the committed uv.lock does not need regeneration.
+RUN uv sync --frozen \
+    && uv pip install --python .venv/bin/python --upgrade "yt-dlp[default]"
 
 COPY . .
 
