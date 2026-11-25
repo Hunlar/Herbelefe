@@ -7,6 +7,7 @@ from pyrogram.errors import UserNotParticipant, UserAlreadyParticipant
 
 from anony import app, db, lang, yt
 from anony.helpers import utils
+from anony.helpers._custom_emoji import random_pack_emoji, pack_caption_entities
 
 
 async def _get_joined_assistant(m: types.Message):
@@ -67,15 +68,19 @@ async def download_youtube(_, m: types.Message):
 
     try:
         client = await _get_joined_assistant(m)
+        emoji, entity = await random_pack_emoji()
+        caption = f"{emoji} {track.title}\nProd By @Sancakmain"
         if is_video:
             await client.send_video(
-                chat_id=m.chat.id, video=file_path, caption=track.title,
+                chat_id=m.chat.id, video=file_path, caption=caption,
+                caption_entities=pack_caption_entities(entity),
                 reply_to_message_id=m.id,
             )
         else:
             await client.send_audio(
                 chat_id=m.chat.id, audio=file_path, title=track.title,
                 performer=track.channel_name or "YouTube",
+                caption=caption, caption_entities=pack_caption_entities(entity),
                 reply_to_message_id=m.id,
             )
         await status.delete()
