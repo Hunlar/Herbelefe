@@ -171,7 +171,12 @@ class YouTube:
             "no_warnings": True, "overwrites": False,
             "logger": DummyLogger(), "nocheckcertificate": True,
             "remote_components": ["ejs:github"],
-            "retries": 3, "fragment_retries": 3, "continuedl": True,
+            # Avoid YouTube's cookie-triggered tv_downgraded client, which
+            # currently returns "The page needs to be reloaded".
+            "extractor_args": {
+                "youtube": {"player_client": ["default", "web_embedded"]}
+            },
+            "retries": 5, "fragment_retries": 5, "continuedl": True,
             "max_filesize": config.DOWNLOAD_LIMIT_BYTES,
         }
         if cookie:
