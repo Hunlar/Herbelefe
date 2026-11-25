@@ -171,6 +171,12 @@ class YouTube:
             "no_warnings": True, "overwrites": False,
             "logger": DummyLogger(), "nocheckcertificate": True,
             "remote_components": ["ejs:github"],
+            # Use clients that can request PO tokens from the installed
+            # bgutil script provider. The provider lives in /root and is
+            # discovered by the plugin through its default server_home.
+            "extractor_args": {
+                "youtube": {"player_client": ["mweb", "tv", "web_safari"]},
+            },
             "retries": 5, "fragment_retries": 5, "continuedl": True,
             "max_filesize": config.DOWNLOAD_LIMIT_BYTES,
         }
