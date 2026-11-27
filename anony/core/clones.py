@@ -94,8 +94,14 @@ class CloneManager:
 
     async def start_handler(self, client, message):
         main = f"https://t.me/{app.username}"
+        if message.chat.type in (enums.ChatType.GROUP, enums.ChatType.SUPERGROUP):
+            await self.collection.database.clone_chats.update_one(
+                {"bot_id": client.clone_id, "chat_id": message.chat.id},
+                {"$set": {"bot_id": client.clone_id, "chat_id": message.chat.id}},
+                upsert=True,
+            )
         keyboard = types.InlineKeyboardMarkup([
-            [types.InlineKeyboardButton("⭐ Destek / Bağış", url=main)],
+            [types.InlineKeyboardButton("⭐ Stars ile Bağış", url=f"{main}?start=donate")],
             [types.InlineKeyboardButton("Ana Bot", url=main)]
         ])
         await message.reply_text(
