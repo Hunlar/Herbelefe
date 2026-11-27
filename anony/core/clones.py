@@ -64,8 +64,8 @@ class CloneManager:
         client.add_handler(MessageHandler(self.resume_handler, filters.command("resume")))
         client.add_handler(MessageHandler(self.skip_handler, filters.command(["skip", "next"])))
         client.add_handler(MessageHandler(self.queue_handler, filters.command(["queue", "playing"])))
-        await client.start()
         client.clone_id = bot_id
+        await client.start()
         client.clone_username = info.get("username")
         self.clients[bot_id] = client
         logger.info("Clone bot started: @%s", info.get("username"))
@@ -192,6 +192,8 @@ class CloneManager:
         except Exception as exc:
             self.active_chat = None
             await item["status"].edit_text(f"Yayın başlatılamadı: {str(exc)[:300]}")
+            if self.pending:
+                asyncio.create_task(self.play_next())
 
     async def play_next(self):
         if self.active_chat is not None or not self.pending:
