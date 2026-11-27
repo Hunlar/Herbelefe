@@ -13,7 +13,7 @@ from anony.helpers import buttons, utils
 @lang.language()
 async def _help(_, m: types.Message):
     await m.reply_text(
-        text=m.lang["help_menu"],
+        text=m.lang["help_menu"] + "\\n\\n🤖 <b>Clone Özelliği</b>: Her kullanıcı /clone komutuyla kendi müzik botunu oluşturabilir. Ayrıntı için /start clone yaz."
         reply_markup=buttons.help_markup(m.lang),
         quote=True,
     )
@@ -22,6 +22,15 @@ async def _help(_, m: types.Message):
 @app.on_message(filters.command(["start"]))
 @lang.language()
 async def start(_, message: types.Message):
+    if len(message.command) > 1 and message.command[1] == "clone":
+        return await message.reply_text(
+            "🤖 <b>Clone Bot</b>\n\nHer kullanıcı kendi Telegram müzik botunu oluşturabilir.\n"
+            "1. @BotFather üzerinden yeni bot oluştur.\n"
+            "2. Bot tokenini ana bota özel mesajla şu şekilde gönder: <code>/clone TOKEN</code>.\n"
+            "3. Klon botu grubuna ekleyip yönetici yap.\n\n"
+            "Not: Bot tokenini içeren komut mesajı güvenlik için otomatik silinir."
+        )
+
     if len(message.command) > 1 and message.command[1] == "donate":
         from anony.plugins.stars import send_donation
         return await send_donation(app, message.chat.id)
