@@ -118,12 +118,21 @@ class YouTube:
             def score(data):
                 title = (data.get("title") or "").lower()
                 wanted = re.findall(r"[a-z0-9çğıöşü]+", query.lower())
-                actual = set(re.findall(r"[a-z0-9çğıöşü]+", title))
+                title_words = re.findall(r"[a-z0-9çğıöşü]+", title)
+                actual = set(title_words)
+                if not wanted:
+                    return 0
                 overlap = sum(1 for word in wanted if word in actual)
-                normalized_title = " ".join(re.findall(r"[a-z0-9çğıöşü]+", title))
-                exact = 1000 if " ".join(wanted) == normalized_title else 0
+                coverage = overlap / len(set(wanted))
+                precision = overlap / max(len(actual), 1)
+                normalized_query = " ".join(wanted)
+                normalized_title = " ".join(title_words)
+                phrase_match = 5000 if normalized_query in normalized_title else 0
+                exact = 2500 if normalized_query == normalized_title else 0
                 views = self._views((data.get("viewCount") or {}).get("short"))
-                return exact + overlap * 100 + min(views, 99_000_000) / 1_000_000
+                # Prioritize matching title words and the requested phrase;
+                # views are only a small tie-breaker, not the main ranking signal.
+                return phrase_match + exact + coverage * 1200 + precision * 250 + min(views, 99_000_000) / 10_000_000
 
             data = max(candidates, key=score)
             thumbs = data.get("thumbnails") or [{}]
@@ -184,7 +193,7 @@ class YouTube:
             "extractor_args": {
                 "youtube": {"player_client": ["mweb", "tv", "web_safari"]},
             },
-            "retries": 5, "fragment_retries": 5, "continuedl": True,
+            "retries": 5, "fragment_retries": 5, "continuedl": True,\n            "concurrent_fragment_downloads": 4, "socket_timeout": 20,
             "max_filesize": config.DOWNLOAD_LIMIT_BYTES,
         }
         if video:
