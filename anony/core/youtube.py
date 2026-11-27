@@ -193,7 +193,8 @@ class YouTube:
             "extractor_args": {
                 "youtube": {"player_client": ["mweb", "tv", "web_safari"]},
             },
-            "retries": 5, "fragment_retries": 5, "continuedl": True,\n            "concurrent_fragment_downloads": 4, "socket_timeout": 20,
+            "retries": 5, "fragment_retries": 5, "continuedl": True,
+            "concurrent_fragment_downloads": 4, "socket_timeout": 20,
             "max_filesize": config.DOWNLOAD_LIMIT_BYTES,
         }
         if video:
