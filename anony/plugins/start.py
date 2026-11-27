@@ -48,6 +48,7 @@ async def start(_, message: types.Message):
         else message.lang["start_gp"].format(app.name)
     )
 
+    _text = '<tg-emoji emoji-id="5206607081334906820">✅</tg-emoji> ' + _text
     key = buttons.start_key(message.lang, private)
     await message.reply_photo(
         photo=config.START_IMG,
