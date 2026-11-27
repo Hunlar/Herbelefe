@@ -16,6 +16,8 @@ class CloneManager:
         self.clients = {}
         self.calls = None
         self.active_chat = None
+        self.pending = []
+        self.current_client = None
         self.lock = asyncio.Lock()
         self.collection = db.db.clones
 
@@ -60,6 +62,8 @@ class CloneManager:
         client.add_handler(MessageHandler(self.stop_handler, filters.command(["stop", "end"])))
         client.add_handler(MessageHandler(self.pause_handler, filters.command("pause")))
         client.add_handler(MessageHandler(self.resume_handler, filters.command("resume")))
+        client.add_handler(MessageHandler(self.skip_handler, filters.command(["skip", "next"])))
+        client.add_handler(MessageHandler(self.queue_handler, filters.command(["queue", "playing"])))
         await client.start()
         client.clone_id = bot_id
         client.clone_username = info.get("username")
@@ -93,6 +97,7 @@ class CloneManager:
         if isinstance(update, call_types.StreamEnded):
             if update.chat_id == self.active_chat:
                 self.active_chat = None
+                asyncio.create_task(self.play_next())
         elif isinstance(update, call_types.ChatUpdate):
             if update.chat_id == self.active_chat and update.status in (
                 call_types.ChatUpdate.Status.KICKED,
@@ -126,10 +131,11 @@ class CloneManager:
             return await message.reply_text("Bu komutu grupta kullan.")
         if len(message.command) < 2:
             return await message.reply_text("Kullanım: /play şarkı adı veya bağlantı")
-        if self.lock.locked() or self.active_chat is not None:
-            return await message.reply_text("Klon asistanı şu anda başka bir grupta yayında. Yayın bitince tekrar dene.")
+        chat_id = message.chat.id
+        if self.active_chat is not None and self.active_chat != chat_id:
+            return await message.reply_text("Klon asistanı başka bir grupta yayında. Yayın bitince tekrar dene.")
         async with self.lock:
-            if self.active_chat is not None:
+            if self.active_chat is not None and self.active_chat != chat_id:
                 return await message.reply_text("Klon asistanı şu anda meşgul.")
             status = await message.reply_text("⏬ İçerik aranıyor ve indiriliyor...")
             video = message.command[0].lower() in ("vplay", "video")
@@ -140,33 +146,81 @@ class CloneManager:
             file_path = await yt.download(track.id, video=video)
             if not file_path or not Path(file_path).is_file():
                 return await status.edit_text("İndirme başarısız. COOKIES_URL ayarını kontrol et.")
-            assistant = userbot.two
+            item = {"client": client, "chat_id": chat_id, "track": track,
+                    "file_path": file_path, "video": video, "status": status}
+            if self.active_chat == chat_id:
+                self.pending.append(item)
+                return await status.edit_text(
+                    f"➕ Kuyruğa eklendi ({len(self.pending)}). <b>{track.title}</b>"
+                )
+            await self._play_item(item)
+
+    async def _play_item(self, item):
+        client = item["client"]
+        chat_id = item["chat_id"]
+        assistant = userbot.two
+        try:
             try:
+                await assistant.get_chat_member(chat_id, assistant.id)
+            except errors.UserNotParticipant:
+                invite = None
                 try:
-                    await assistant.get_chat_member(message.chat.id, assistant.id)
-                except errors.UserNotParticipant:
-                    invite = message.chat.username
+                    chat = await client.get_chat(chat_id)
+                    invite = chat.username or chat.invite_link
                     if not invite:
-                        chat = await client.get_chat(message.chat.id)
-                        invite = chat.invite_link or await client.export_chat_invite_link(message.chat.id)
-                    await assistant.join_chat(invite)
-                stream = call_types.MediaStream(
-                    media_path=file_path,
-                    audio_parameters=call_types.AudioQuality.HIGH,
-                    video_parameters=call_types.VideoQuality.HD_720p,
-                    audio_flags=call_types.MediaStream.Flags.REQUIRED,
-                    video_flags=(call_types.MediaStream.Flags.AUTO_DETECT if video else call_types.MediaStream.Flags.IGNORE),
-                )
-                await self.calls.play(
-                    chat_id=message.chat.id,
-                    stream=stream,
-                    config=call_types.GroupCallConfig(auto_start=False),
-                )
-                self.active_chat = message.chat.id
-                await status.edit_text(f"▶️ <b>{track.title}</b>\nAsistan: @{assistant.username}")
-            except Exception as exc:
-                self.active_chat = None
-                await status.edit_text(f"Yayın başlatılamadı: {str(exc)[:300]}")
+                        invite = await client.export_chat_invite_link(chat_id)
+                except Exception as exc:
+                    raise RuntimeError("Asistanı gruba eklemek için botu yönetici yapıp davet bağlantısı oluştur.") from exc
+                await assistant.join_chat(invite)
+            stream = call_types.MediaStream(
+                media_path=item["file_path"],
+                audio_parameters=call_types.AudioQuality.HIGH,
+                video_parameters=call_types.VideoQuality.HD_720p,
+                audio_flags=call_types.MediaStream.Flags.REQUIRED,
+                video_flags=(call_types.MediaStream.Flags.AUTO_DETECT if item["video"] else call_types.MediaStream.Flags.IGNORE),
+            )
+            await self.calls.play(
+                chat_id=chat_id,
+                stream=stream,
+                config=call_types.GroupCallConfig(auto_start=False),
+            )
+            self.active_chat = chat_id
+            self.current_client = client
+            await item["status"].edit_text(
+                f"▶️ <b>{item['track'].title}</b>\nAsistan: @{assistant.username}"
+            )
+        except Exception as exc:
+            self.active_chat = None
+            await item["status"].edit_text(f"Yayın başlatılamadı: {str(exc)[:300]}")
+
+    async def play_next(self):
+        if self.active_chat is not None or not self.pending:
+            return
+        item = self.pending.pop(0)
+        async with self.lock:
+            if self.active_chat is None:
+                await self._play_item(item)
+            else:
+                self.pending.insert(0, item)
+
+    async def skip_handler(self, client, message):
+        if self.active_chat != message.chat.id:
+            return await message.reply_text("Bu grupta yayın bulunmuyor.")
+        try:
+            await self.calls.leave_call(message.chat.id)
+        except Exception:
+            pass
+        self.active_chat = None
+        await message.reply_text("⏭ Sıradaki parçaya geçiliyor.")
+        await self.play_next()
+
+    async def queue_handler(self, client, message):
+        items = [item for item in self.pending if item["chat_id"] == message.chat.id]
+        if self.active_chat != message.chat.id and not items:
+            return await message.reply_text("Bu grupta yayın veya kuyruk bulunmuyor.")
+        lines = [f"{i}. {item['track'].title}" for i, item in enumerate(items, 1)]
+        text = "<b>Klon bot kuyruğu</b>\n" + ("\n".join(lines) if lines else "Kuyruk boş.")
+        await message.reply_text(text)
 
     async def stop_handler(self, client, message):
         if not self.calls or self.active_chat != message.chat.id:
@@ -175,6 +229,7 @@ class CloneManager:
             await self.calls.leave_call(message.chat.id)
         finally:
             self.active_chat = None
+            self.pending = [item for item in self.pending if item["chat_id"] != message.chat.id]
         await message.reply_text("⏹ Yayın durduruldu.")
 
     async def pause_handler(self, client, message):
