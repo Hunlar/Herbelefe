@@ -122,9 +122,14 @@ class CloneManager:
             await self.play_next()
         elif item:
             try:
-                await item["status"].edit_text(
-                    "⏹ <b>Yayın sona erdi</b>\nDestek için inceleyin: @SancakMain"
-                )
+                try:
+                    await item["status"].edit_caption(
+                        "⏹ <b>Yayın sona erdi</b>\nDestek için inceleyin: @SancakMain"
+                    )
+                except Exception:
+                    await item["status"].edit_text(
+                        "⏹ <b>Yayın sona erdi</b>\nDestek için inceleyin: @SancakMain"
+                    )
             except Exception:
                 pass
 
@@ -327,9 +332,15 @@ class CloneManager:
                 self.current_item = None
                 if action == "stop":
                     self.pending = [entry for entry in self.pending if entry["chat_id"] != chat_id]
-                    await query.message.edit_text("⏹ <b>Yayın durduruldu.</b>\nDestek için inceleyin: @SancakMain")
+                    try:
+                        await query.message.edit_caption("⏹ <b>Yayın durduruldu.</b>\nDestek için inceleyin: @SancakMain")
+                    except Exception:
+                        await query.message.edit_text("⏹ <b>Yayın durduruldu.</b>\nDestek için inceleyin: @SancakMain")
                     return await query.answer("Yayın durduruldu.")
                 try:
+                    await query.message.edit_caption("⏭ <b>Sıradaki parça başlatılıyor...</b>")
+                except Exception:
+                    try:
                     await query.message.edit_caption("⏭ <b>Sıradaki parça başlatılıyor...</b>")
                 except Exception:
                     await query.message.edit_text("⏭ <b>Sıradaki parça başlatılıyor...</b>")
