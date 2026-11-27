@@ -70,7 +70,7 @@ class CloneManager:
         if config.SESSION2:
             self.calls = PyTgCalls(userbot.two, cache_duration=100)
             await self.calls.start()
-            await self.calls.on_update()(self.call_update)
+            self.calls.on_update()(self.call_update)
         async for doc in self.collection.find({"enabled": True}):
             try:
                 await self.start_one(doc["token"], {
