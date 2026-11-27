@@ -77,3 +77,6 @@ async def stop() -> None:
     await thumb.close()
 
     logger.info("Stopped.\n")
+
+from anony.core.clones import CloneManager
+clones = CloneManager()
