@@ -4,7 +4,7 @@ from pathlib import Path
 
 import aiohttp
 from pyrogram import Client, filters, types, enums, errors
-from pyrogram.handlers import MessageHandler
+from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 from pytgcalls import PyTgCalls, types as call_types, exceptions
 
 from anony import app, config, db, lang, logger, userbot, yt
@@ -18,6 +18,7 @@ class CloneManager:
         self.active_chat = None
         self.pending = []
         self.current_client = None
+        self.current_item = None
         self.lock = asyncio.Lock()
         self.collection = db.db.clones
 
@@ -64,6 +65,7 @@ class CloneManager:
         client.add_handler(MessageHandler(self.resume_handler, filters.command("resume")))
         client.add_handler(MessageHandler(self.skip_handler, filters.command(["skip", "next"])))
         client.add_handler(MessageHandler(self.queue_handler, filters.command(["queue", "playing"])))
+        client.add_handler(CallbackQueryHandler(self.control_handler, filters.regex(r"^clone:")))
         client.clone_id = bot_id
         await client.start()
         client.clone_username = info.get("username")
@@ -96,8 +98,7 @@ class CloneManager:
     async def call_update(self, _, update):
         if isinstance(update, call_types.StreamEnded):
             if update.chat_id == self.active_chat:
-                self.active_chat = None
-                asyncio.create_task(self.play_next())
+                asyncio.create_task(self.finish_track(update.chat_id))
         elif isinstance(update, call_types.ChatUpdate):
             if update.chat_id == self.active_chat and update.status in (
                 call_types.ChatUpdate.Status.KICKED,
@@ -105,6 +106,27 @@ class CloneManager:
                 call_types.ChatUpdate.Status.CLOSED_VOICE_CHAT,
             ):
                 self.active_chat = None
+                self.current_item = None
+
+    async def finish_track(self, chat_id):
+        if chat_id != self.active_chat:
+            return
+        item = self.current_item
+        try:
+            await self.calls.leave_call(chat_id)
+        except Exception:
+            logger.exception("Could not leave clone voice chat %s after stream end", chat_id)
+        self.active_chat = None
+        self.current_item = None
+        if any(entry["chat_id"] == chat_id for entry in self.pending):
+            await self.play_next()
+        elif item:
+            try:
+                await item["status"].edit_text(
+                    "⏹ <b>Yayın sona erdi</b>\nDestek için inceleyin: @SancakMain"
+                )
+            except Exception:
+                pass
 
     async def start_handler(self, client, message):
         if not message.from_user:
@@ -198,7 +220,8 @@ class CloneManager:
             if not file_path or not Path(file_path).is_file():
                 return await status.edit_text("İndirme başarısız. COOKIES_URL ayarını kontrol et.")
             item = {"client": client, "chat_id": chat_id, "track": track,
-                    "file_path": file_path, "video": video, "status": status}
+                    "file_path": file_path, "video": video, "status": status,
+                    "requester": message.from_user.mention}
             if self.active_chat == chat_id:
                 self.pending.append(item)
                 return await status.edit_text(
@@ -248,8 +271,22 @@ class CloneManager:
             )
             self.active_chat = chat_id
             self.current_client = client
+            self.current_item = item
+            keyboard = types.InlineKeyboardMarkup([
+                [
+                    types.InlineKeyboardButton("🟢 ▶️", callback_data="clone:resume"),
+                    types.InlineKeyboardButton("🟡 ⏸", callback_data="clone:pause"),
+                    types.InlineKeyboardButton("🔵 ⏭", callback_data="clone:skip"),
+                    types.InlineKeyboardButton("🔴 ⏹", callback_data="clone:stop"),
+                ]
+            ])
             await item["status"].edit_text(
-                f"▶️ <b>{item['track'].title}</b>\\nAsistan: @{assistant.username}"
+                f"🎵 <b>Yayın başladı</b>\n"
+                f"<b>Başlık:</b> {item['track'].title}\n"
+                f"<b>Süre:</b> {item['track'].duration}\n"
+                f"<b>İsteyen:</b> {item.get('requester', 'Kullanıcı')}\n\n"
+                "Destek için inceleyin: @SancakMain",
+                reply_markup=keyboard,
             )
         except Exception as exc:
             self.active_chat = None
@@ -267,6 +304,39 @@ class CloneManager:
                 await self._play_item(item)
             else:
                 self.pending.insert(0, item)
+
+    async def control_handler(self, client, query):
+        action = query.data.split(":", 1)[1]
+        chat_id = query.message.chat.id
+        if self.active_chat != chat_id or not self.calls:
+            return await query.answer("Bu grupta aktif yayın bulunmuyor.", show_alert=True)
+        try:
+            if action == "pause":
+                await self.calls.pause(chat_id)
+                return await query.answer("Yayın duraklatıldı.")
+            if action == "resume":
+                await self.calls.resume(chat_id)
+                return await query.answer("Yayın devam ediyor.")
+            if action in ("skip", "stop"):
+                try:
+                    await self.calls.leave_call(chat_id)
+                except Exception:
+                    pass
+                self.active_chat = None
+                self.current_item = None
+                if action == "stop":
+                    self.pending = [entry for entry in self.pending if entry["chat_id"] != chat_id]
+                    await query.message.edit_text("⏹ <b>Yayın durduruldu.</b>\nDestek için inceleyin: @SancakMain")
+                    return await query.answer("Yayın durduruldu.")
+                await query.message.edit_text("⏭ <b>Sıradaki parça başlatılıyor...</b>")
+                await query.answer("Sonraki parçaya geçiliyor.")
+                await self.play_next()
+        except Exception as exc:
+            logger.exception("Clone playback control failed: %s", exc)
+            try:
+                await query.answer(f"İşlem başarısız: {str(exc)[:150]}", show_alert=True)
+            except Exception:
+                pass
 
     async def skip_handler(self, client, message):
         if self.active_chat != message.chat.id:
@@ -294,6 +364,7 @@ class CloneManager:
             await self.calls.leave_call(message.chat.id)
         finally:
             self.active_chat = None
+            self.current_item = None
             self.pending = [item for item in self.pending if item["chat_id"] != message.chat.id]
         await message.reply_text("⏹ Yayın durduruldu.")
 
