@@ -119,7 +119,9 @@ class MongoDB:
 
     # ASSISTANT METHODS
     async def set_assistant(self, chat_id: int) -> int:
-        num = randint(1, len(userbot.clients))
+        # The main bot is permanently pinned to assistant 1.
+        # SESSION2 is reserved for clone bots and must never be selected here.
+        num = 1
         await self.assistantdb.update_one(
             {"_id": chat_id},
             {"$set": {"num": num}},
@@ -131,26 +133,23 @@ class MongoDB:
     async def get_assistant(self, chat_id: int):
         from anony import anon
 
-        if chat_id not in self.assistant:
-            doc = await self.assistantdb.find_one({"_id": chat_id})
-            num = doc["num"] if doc else None
+        if not anon.clients:
+            raise RuntimeError("The main assistant (SESSION1) is not running.")
 
-            if not num or num > len(anon.clients):
-                num = await self.set_assistant(chat_id)
-            self.assistant[chat_id] = num
+        # Ignore legacy random assistant assignments so existing chats continue
+        # on SESSION1 after SESSION2 is configured for clone playback.
+        if chat_id not in self.assistant or self.assistant[chat_id] != 1:
+            await self.set_assistant(chat_id)
 
-        return anon.clients[self.assistant[chat_id] - 1]
+        return anon.clients[0]
 
     async def get_client(self, chat_id: int):
-        if chat_id not in self.assistant:
-            await self.get_assistant(chat_id)
+        if not userbot.clients:
+            raise RuntimeError("The main assistant (SESSION1) is not running.")
 
-        num = self.assistant[chat_id]
-        if num > len(userbot.clients):
-            num = await self.set_assistant(chat_id)
-            self.assistant[chat_id] = num
-
-        return {1: userbot.one, 2: userbot.two, 3: userbot.three}.get(num)
+        # The original bot always uses SESSION1. Clone playback will use SESSION2
+        # through the separate clone runtime.
+        return userbot.one
 
     # BLACKLIST METHODS
     async def add_blacklist(self, chat_id: int) -> None:
