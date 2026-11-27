@@ -7,12 +7,12 @@ DONATION_STARS = 10
 async def send_donation(client, chat_id: int):
     await client.send_invoice(
         chat_id=chat_id,
-        title="Herbelefe Desteği",
-        description="Herbelefe müzik botunun geliştirilmesine Stars ile destek ol.",
+        title="Sancak MAİN Destek",
+        description="Sancak MAİN topluluğuna Stars ile destek ol.",
         payload="herbelefe-donation-v1",
         provider_token="",
         currency="XTR",
-        prices=[types.LabeledPrice(label="Herbelefe desteği", amount=DONATION_STARS)],
+        prices=[types.LabeledPrice(label="Sancak MAİN destek", amount=DONATION_STARS)],
     )
 
 @app.on_message(filters.command(["donate", "bagis"]) & filters.private)
@@ -25,5 +25,5 @@ async def donation_success(_, message: types.Message):
     if payment.invoice_payload != "herbelefe-donation-v1":
         return
     await message.reply_text(
-        f"⭐ Bağışın için teşekkürler! {payment.total_amount} Stars, ana Herbelefe botuna ulaştı."
+        f"⭐ Desteğin için teşekkürler! {payment.total_amount} Stars, Sancak MAİN desteğine ulaştı."
     )
