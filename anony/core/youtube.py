@@ -200,18 +200,17 @@ class YouTube:
             format_candidates = ["bestaudio/best"]
             opts.update({"postprocessors": []})
 
-        # Public YouTube videos are attempted WITHOUT account cookies first.
-        # YouTube has recently returned "The page needs to be reloaded" when
-        # cookie-authenticated requests are downgraded to tv_downgraded.
-        # Only retry with cookies if the normal public-video request fails.
-        configurations = [("anonymous", dict(opts))]
+        # Prefer the configured COOKIES_URL cookie file for all music/video
+        # downloads. Fall back to an anonymous request only if the cookie-based
+        # extraction fails (for public videos or expired cookies).
+        configurations = []
         if cookie:
             cookie_opts = dict(opts)
             cookie_opts["cookiefile"] = cookie
-            # Keep yt-dlp's maintained default client selection here. Forcing
-            # web_embedded restricts results to embeddable videos and can leave
-            # ordinary songs with no downloadable audio formats.
+            # Keep yt-dlp's maintained default client selection. Restricting
+            # this to embedded clients can hide ordinary music formats.
             configurations.append(("cookie-default-clients", cookie_opts))
+        configurations.append(("anonymous-fallback", dict(opts)))
 
         def _download():
             last_error = None
