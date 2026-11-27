@@ -70,18 +70,25 @@ class YouTube:
         return random.choice(self.cookies)
 
     async def save_cookies(self, urls: list[str]) -> None:
-        self.cookie_dir.mkdir(parents=True, exist_ok=True)
-        cookie_path = self.cookie_dir / "cookies.txt"
+        import hashlib
 
+        self.cookie_dir.mkdir(parents=True, exist_ok=True)
         timeout = aiohttp.ClientTimeout(total=60)
+        downloaded = []
+
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            for url in urls:
+            for index, url in enumerate(urls, start=1):
                 async with session.get(url, allow_redirects=True) as resp:
                     resp.raise_for_status()
                     content = await resp.read()
-                    if not content.strip():
-                        raise ValueError("Downloaded YouTube cookies file is empty")
-                    cookie_path.write_bytes(content)
+                if not content.strip():
+                    raise ValueError(f"YouTube cookies file #{index} is empty")
+                # Keep each configured account's cookies separately instead of
+                # overwriting the same cookies.txt file on every URL.
+                suffix = hashlib.sha256(url.encode("utf-8")).hexdigest()[:12]
+                cookie_path = self.cookie_dir / f"cookies_{suffix}.txt"
+                cookie_path.write_bytes(content)
+                downloaded.append(str(cookie_path.resolve()))
 
         self.cookies = [
             str(p.resolve())
@@ -90,7 +97,7 @@ class YouTube:
         ]
         self.checked = True
         if self.cookies:
-            logger.info("YouTube cookies downloaded successfully.")
+            logger.info("YouTube cookie file(s) downloaded: %s", len(downloaded))
 
     @staticmethod
     def _views(value) -> int:
