@@ -2,18 +2,19 @@ from pyrogram import filters, types, errors
 
 from anony import app, clones, db
 
-@app.on_message(filters.command("clone") & app.sudoers)
+@app.on_message(filters.command("clone"))
 async def add_clone(_, message: types.Message):
     if len(message.command) != 2:
         return await message.reply_text("Kullanım: /clone BOTFATHER_TOKEN")
     token = message.command[1].strip()
+    # Delete the message containing the BotFather token immediately.
+    try:
+        await message.delete()
+    except Exception:
+        pass
     status = await message.reply_text("Bot tokeni doğrulanıyor...")
     try:
         me = await clones.add(token, message.from_user.id)
-        try:
-            await message.delete()
-        except Exception:
-            pass
         await status.edit_text(
             f"✅ Klon bot eklendi: @{me.get('username') or me['id']}\n"
             "Komutlar: /play, /vplay, /pause, /resume, /stop"
