@@ -64,6 +64,7 @@ class Inline:
             ]
             rows = [buttons[i : i + 3] for i in range(0, len(buttons), 3)]
 
+        rows.append([self.ikb(text="🤖 Clone Özelliği", url=f"https://t.me/{app.username}?start=clone")])
         return self.ikm(rows)
 
     def lang_markup(self, _lang: str) -> types.InlineKeyboardMarkup:
@@ -143,6 +144,7 @@ class Inline:
                 )
             ],
             [self.ikb(text=lang["help"], callback_data="help")],
+            [self.ikb(text="🤖 Clone Oluştur", url=f"https://t.me/{app.username}?start=clone")],
             [
                 self.ikb(text=lang["support"], url=config.SUPPORT_CHAT),
                 self.ikb(text=lang["channel"], url=config.SUPPORT_CHANNEL),
