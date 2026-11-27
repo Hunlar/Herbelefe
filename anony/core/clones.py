@@ -342,7 +342,10 @@ class CloneManager:
                     self.pending = [entry for entry in self.pending if entry["chat_id"] != chat_id]
                     await query.message.edit_text("⏹ <b>Yayın durduruldu.</b>\nDestek için inceleyin: @SancakMain")
                     return await query.answer("Yayın durduruldu.")
-                await query.message.edit_text("⏭ <b>Sıradaki parça başlatılıyor...</b>")
+                try:
+                    await query.message.edit_caption("⏭ <b>Sıradaki parça başlatılıyor...</b>")
+                except Exception:
+                    await query.message.edit_text("⏭ <b>Sıradaki parça başlatılıyor...</b>")
                 await query.answer("Sonraki parçaya geçiliyor.")
                 await self.play_next()
         except Exception as exc:
