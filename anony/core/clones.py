@@ -280,14 +280,28 @@ class CloneManager:
                     types.InlineKeyboardButton("🔴 ⏹", callback_data="clone:stop"),
                 ]
             ])
-            await item["status"].edit_text(
+            panel_text = (
                 f"🎵 <b>Yayın başladı</b>\n"
                 f"<b>Başlık:</b> {item['track'].title}\n"
                 f"<b>Süre:</b> {item['track'].duration}\n"
                 f"<b>İsteyen:</b> {item.get('requester', 'Kullanıcı')}\n\n"
-                "Destek için inceleyin: @SancakMain",
-                reply_markup=keyboard,
+                "Destek için inceleyin: @SancakMain"
             )
+            try:
+                await item["status"].delete()
+            except Exception:
+                pass
+            try:
+                item["status"] = await client.send_photo(
+                    chat_id=chat_id,
+                    photo=item["track"].thumbnail or config.DEFAULT_THUMB,
+                    caption=panel_text,
+                    reply_markup=keyboard,
+                )
+            except Exception:
+                item["status"] = await client.send_message(
+                    chat_id=chat_id, text=panel_text, reply_markup=keyboard
+                )
         except Exception as exc:
             self.active_chat = None
             logger.exception("Clone playback failed in chat %s", chat_id)
