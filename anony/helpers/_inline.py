@@ -143,11 +143,11 @@ class Inline:
                     url=f"https://t.me/{app.username}?startgroup=true",
                 )
             ],
-            [self.ikb(text=lang["help"], callback_data="help")],
+            [self.ikb(text="🔴 🆘 " + lang["help"], callback_data="help")],
             [self.ikb(text="🤖 Clone Oluştur", url=f"https://t.me/{app.username}?start=clone")],
             [
                 self.ikb(text=lang["support"], url=config.SUPPORT_CHAT),
-                self.ikb(text=lang["channel"], url=config.SUPPORT_CHANNEL),
+                self.ikb(text=lang["channel"], url="https://t.me/sancakmain"),
             ],
         ]
         if private:
@@ -155,7 +155,7 @@ class Inline:
                 [
                     self.ikb(
                         text=lang["source"],
-                        url="https://t.me/ellendiniz",
+                        url="https://t.me/byatillaozturk",
                     )
                 ]
             ]
