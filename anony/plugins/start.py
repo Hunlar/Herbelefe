@@ -22,6 +22,10 @@ async def _help(_, m: types.Message):
 @app.on_message(filters.command(["start"]))
 @lang.language()
 async def start(_, message: types.Message):
+    if len(message.command) > 1 and message.command[1] == "donate":
+        from anony.plugins.stars import send_donation
+        return await send_donation(app, message.chat.id)
+
     if message.from_user.id in app.bl_users and message.from_user.id not in db.notified:
         return await message.reply_text(message.lang["bl_user_notify"])
 
