@@ -13,7 +13,7 @@ from anony.helpers import buttons, utils
 @lang.language()
 async def _help(_, m: types.Message):
     await m.reply_text(
-        text=m.lang["help_menu"] + "\\n\\n🤖 <b>Clone Özelliği</b>: Her kullanıcı /clone komutuyla kendi müzik botunu oluşturabilir. Ayrıntı için /start clone yaz."
+        text=m.lang["help_menu"] + "\\n\\n🤖 <b>Clone Özelliği</b>: Her kullanıcı /clone komutuyla kendi müzik botunu oluşturabilir. Ayrıntı için /start clone yaz.",
         reply_markup=buttons.help_markup(m.lang),
         quote=True,
     )
