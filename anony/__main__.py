@@ -7,7 +7,7 @@ import asyncio
 import signal
 import importlib
 
-from anony import (anon, app, config, db, logger,
+from anony import (anon, app, clones, config, db, logger,
                    stop, thumb, userbot, yt)
 from anony.plugins import all_modules
 
@@ -34,6 +34,7 @@ async def main():
     await userbot.boot()
     await anon.boot()
     await thumb.start()
+    await clones.boot()
 
     for module in all_modules:
         importlib.import_module(f"anony.plugins.{module}")
@@ -48,6 +49,7 @@ async def main():
     logger.info(f"Loaded {len(app.sudoers)} sudo users.")
 
     await idle()
+    await clones.shutdown()
     await stop()
 
 
