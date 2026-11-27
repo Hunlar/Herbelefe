@@ -160,18 +160,29 @@ class CloneManager:
         chat_id = item["chat_id"]
         assistant = userbot.two
         try:
-            try:
-                await assistant.get_chat_member(chat_id, assistant.id)
-            except errors.UserNotParticipant:
-                invite = None
+            # Resolve the group through the clone bot, then join the assistant
+            # with a public username or invite link. Calling get_chat_member()
+            # first can raise CHANNEL_INVALID because the assistant has no
+            # cached InputChannel/access_hash for this group yet.
+            chat = await client.get_chat(chat_id)
+            invite = chat.username or chat.invite_link
+            if not invite:
                 try:
-                    chat = await client.get_chat(chat_id)
-                    invite = chat.username or chat.invite_link
-                    if not invite:
-                        invite = await client.export_chat_invite_link(chat_id)
+                    invite = await client.export_chat_invite_link(chat_id)
                 except Exception as exc:
-                    raise RuntimeError("Asistanı gruba eklemek için botu yönetici yapıp davet bağlantısı oluştur.") from exc
+                    raise RuntimeError(
+                        "Klon botu grupta yönetici yap ve davet bağlantısı oluşturma izni ver."
+                    ) from exc
+
+            try:
                 await assistant.join_chat(invite)
+            except errors.UserAlreadyParticipant:
+                pass
+            except errors.InviteHashExpired:
+                raise RuntimeError("Grup davet bağlantısının süresi dolmuş. Yeni bağlantı oluştur.")
+            except errors.InviteHashInvalid:
+                raise RuntimeError("Grup davet bağlantısı geçersiz. Klon botun davet bağlantısını yenile.")
+
             stream = call_types.MediaStream(
                 media_path=item["file_path"],
                 audio_parameters=call_types.AudioQuality.HIGH,
@@ -187,10 +198,11 @@ class CloneManager:
             self.active_chat = chat_id
             self.current_client = client
             await item["status"].edit_text(
-                f"▶️ <b>{item['track'].title}</b>\nAsistan: @{assistant.username}"
+                f"▶️ <b>{item['track'].title}</b>\\nAsistan: @{assistant.username}"
             )
         except Exception as exc:
             self.active_chat = None
+            logger.exception("Clone playback failed in chat %s", chat_id)
             await item["status"].edit_text(f"Yayın başlatılamadı: {str(exc)[:300]}")
             if self.pending:
                 asyncio.create_task(self.play_next())
