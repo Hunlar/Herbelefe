@@ -7,7 +7,7 @@ from pyrogram import Client, filters, types, enums, errors
 from pyrogram.handlers import MessageHandler
 from pytgcalls import PyTgCalls, types as call_types, exceptions
 
-from anony import app, config, db, logger, userbot, yt
+from anony import app, config, db, lang, logger, userbot, yt
 
 class CloneManager:
     """Runs BotFather-created clone bots on the same Heroku worker."""
@@ -107,21 +107,72 @@ class CloneManager:
                 self.active_chat = None
 
     async def start_handler(self, client, message):
+        if not message.from_user:
+            return
+
         main = f"https://t.me/{app.username}"
-        if message.chat.type in (enums.ChatType.GROUP, enums.ChatType.SUPERGROUP):
+        clone_link = f"https://t.me/{client.me.username}"
+        private = message.chat.type == enums.ChatType.PRIVATE
+
+        if not private:
             await self.collection.database.clone_chats.update_one(
                 {"bot_id": client.clone_id, "chat_id": message.chat.id},
                 {"$set": {"bot_id": client.clone_id, "chat_id": message.chat.id}},
                 upsert=True,
             )
-        keyboard = types.InlineKeyboardMarkup([
-            [types.InlineKeyboardButton("⭐ Sancak MAİN Destek", url=f"{main}?start=donate")],
-            [types.InlineKeyboardButton("Ana Bot", url=main)]
-        ])
-        await message.reply_text(
-            f"Merhaba! <b>{client.me.first_name}</b> müzik botuna hoş geldin.\n"
-            "Komutlar: /play, /vplay, /pause, /resume, /stop",
+
+        # Match the original bot's language, start image, caption and button layout.
+        text = await lang.get_lang(message.chat.id)
+        if len(message.command) > 1 and message.command[1] == "help":
+            return await message.reply_text(
+                "<b>Yardım / Komutlar</b>\\n\\n"
+                "/play şarkı adı veya bağlantı - Müzik oynat\\n"
+                "/vplay şarkı adı veya bağlantı - Video oynat\\n"
+                "/pause - Duraklat\\n"
+                "/resume - Devam ettir\\n"
+                "/skip - Sonraki parça\\n"
+                "/queue - Sırayı göster\\n"
+                "/stop - Yayını durdur"
+            )
+
+        caption = (
+            text["start_pm"].format(message.from_user.first_name, client.me.first_name)
+            if private
+            else text["start_gp"].format(client.me.first_name)
+        )
+
+        rows = [
+            [types.InlineKeyboardButton(
+                text=text["add_me"], url=f"{clone_link}?startgroup=true"
+            )],
+            [types.InlineKeyboardButton(text=text["help"], url=f"{clone_link}?start=help")],
+            [types.InlineKeyboardButton(
+                text="🤖 Clone Oluştur", url=f"{main}?start=clone"
+            )],
+            [
+                types.InlineKeyboardButton(text=text["support"], url=config.SUPPORT_CHAT),
+                types.InlineKeyboardButton(text=text["channel"], url=config.SUPPORT_CHANNEL),
+            ],
+        ]
+        if private:
+            rows.append([
+                types.InlineKeyboardButton(
+                    text=text["source"], url="https://t.me/ellendiniz"
+                )
+            ])
+        else:
+            rows.append([
+                types.InlineKeyboardButton(
+                    text=text["language"], url=f"{main}?start=help"
+                )
+            ])
+
+        keyboard = types.InlineKeyboardMarkup(rows)
+        await message.reply_photo(
+            photo=config.START_IMG,
+            caption=caption,
             reply_markup=keyboard,
+            quote=not private,
         )
 
     async def play_handler(self, client, message):
