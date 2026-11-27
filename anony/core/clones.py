@@ -115,7 +115,7 @@ class CloneManager:
                 upsert=True,
             )
         keyboard = types.InlineKeyboardMarkup([
-            [types.InlineKeyboardButton("⭐ Stars ile Bağış", url=f"{main}?start=donate")],
+            [types.InlineKeyboardButton("⭐ Sancak MAİN Destek", url=f"{main}?start=donate")],
             [types.InlineKeyboardButton("Ana Bot", url=main)]
         ])
         await message.reply_text(
