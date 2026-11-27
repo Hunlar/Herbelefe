@@ -221,8 +221,8 @@ class TgCall(PyTgCalls):
 
         # Initialize voice-call engines concurrently so both assistant accounts
         # are ready as early as possible after process startup.
-        if userbot.clients:
-            self.clients.extend(await asyncio.gather(
-                *(start_call_client(ub) for ub in userbot.clients)
-            ))
+        # The original bot owns SESSION1 only. SESSION2 is exclusively
+        # initialized by CloneManager for all cloned bots.
+        if config.SESSION1 and userbot.one:
+            self.clients.append(await start_call_client(userbot.one))
         logger.info("PyTgCalls client(s) started.")
