@@ -340,9 +340,6 @@ class CloneManager:
                 try:
                     await query.message.edit_caption("⏭ <b>Sıradaki parça başlatılıyor...</b>")
                 except Exception:
-                    try:
-                    await query.message.edit_caption("⏭ <b>Sıradaki parça başlatılıyor...</b>")
-                except Exception:
                     await query.message.edit_text("⏭ <b>Sıradaki parça başlatılıyor...</b>")
                 await query.answer("Sonraki parçaya geçiliyor.")
                 await self.play_next()
