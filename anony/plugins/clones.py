@@ -4,6 +4,8 @@ from anony import app, clones, db
 
 @app.on_message(filters.command("clone"))
 async def add_clone(_, message: types.Message):
+    if message.chat.type != "private":
+        return await message.reply_text("Güvenlik için /clone komutunu ana botla özel sohbetinde kullan.")
     if len(message.command) != 2:
         return await message.reply_text("Kullanım: /clone BOTFATHER_TOKEN")
     token = message.command[1].strip()
