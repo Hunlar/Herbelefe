@@ -2,7 +2,12 @@
     "name": "AnonX Music",
     "description": "A Telegram Music Player Bot, written in Python with Pyrogram and Py-Tgcalls.",
     "logo": "https://te.legra.ph/file/b8a0c1a00db3e57522b53.jpg",
-    "keywords": ["python3", "telegram", "bot", "music-bot"],
+    "keywords": [
+        "python3",
+        "telegram",
+        "bot",
+        "music-bot"
+    ],
     "stack": "container",
     "env": {
         "API_ID": {
@@ -39,6 +44,11 @@
             "description": "A Pyrogram v2 String Session from @StringFatherBot on Telegram.",
             "value": "",
             "required": true
+        },
+        "SESSION2": {
+            "description": "Optional Pyrogram String Session dedicated to playback for all clone bots. Generate it for @Klonbotasistan.",
+            "value": "",
+            "required": false
         }
     }
 }
