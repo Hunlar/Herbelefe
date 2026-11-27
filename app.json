@@ -46,7 +46,12 @@
             "required": true
         },
         "SESSION2": {
-            "description": "Optional Pyrogram String Session dedicated to playback for all clone bots. Generate it for @Klonbotasistan.",
+            "description": "Required Pyrogram String Session for @Klonbotasistan. Used only by all clone bots for group-call playback.",
+            "value": "",
+            "required": true
+        },
+        "COOKIES_URL": {
+            "description": "One or more direct URLs to Netscape-format cookies.txt files, separated by spaces. Used first for YouTube audio/video downloads.",
             "value": "",
             "required": false
         }
