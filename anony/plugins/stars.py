@@ -2,7 +2,7 @@ from pyrogram import filters, types
 
 from anony import app
 
-DONATION_STARS = 10
+DONATION_STARS = 50
 
 async def send_donation(client, chat_id: int):
     await client.send_invoice(
