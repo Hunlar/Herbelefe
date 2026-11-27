@@ -77,16 +77,17 @@ async def broadcast_clones(_, message: types.Message):
     if not message.reply_to_message:
         return await message.reply_text("Duyuru mesajına yanıt verip /broadcastclones yaz.")
     sent, failed = 0, 0
-    for bot_id, client in list(clones.clients.items()):
+    async for target in clones.collection.database.clone_chats.find({}):
+        client = clones.clients.get(int(target["bot_id"]))
+        if not client:
+            continue
         try:
-            async for chat in clones.collection.find({"_id": bot_id}):
-                # Broadcast only to chats where this clone has been started.
-                async for target in clones.collection.database.clone_chats.find({"bot_id": bot_id}):
-                    try:
-                        await message.reply_to_message.copy(target["chat_id"], client=client)
-                        sent += 1
-                    except Exception:
-                        failed += 1
+            await client.copy_message(
+                chat_id=target["chat_id"],
+                from_chat_id=message.chat.id,
+                message_id=message.reply_to_message.id,
+            )
+            sent += 1
         except Exception:
             failed += 1
     await message.reply_text(f"Duyuru tamamlandı. Gönderilen: {sent} | Hata: {failed}")
