@@ -3,6 +3,8 @@
 # This file is part of AnonXMusic
 
 
+import asyncio
+
 from pyrogram import Client
 
 from anony import config, logger
@@ -68,12 +70,22 @@ class Userbot(Client):
         """
         Asynchronously starts the assistants.
         """
+        # Start configured assistant accounts concurrently to reduce cold-start
+        # time. SESSION1 remains the original bot assistant; SESSION2 is reserved
+        # for clone playback. SESSION3 is retained for backward compatibility,
+        # but the main bot's database routing never selects it.
+        startup = []
         if config.SESSION1:
-            await self.boot_client(1, self.one)
+            startup.append(self.boot_client(1, self.one))
         if config.SESSION2:
-            await self.boot_client(2, self.two)
+            startup.append(self.boot_client(2, self.two))
         if config.SESSION3:
-            await self.boot_client(3, self.three)
+            startup.append(self.boot_client(3, self.three))
+        if startup:
+            results = await asyncio.gather(*startup, return_exceptions=True)
+            failures = [result for result in results if isinstance(result, Exception)]
+            if failures:
+                raise SystemExit(f"Assistant startup failed: {failures[0]}")
 
     async def exit(self):
         """
