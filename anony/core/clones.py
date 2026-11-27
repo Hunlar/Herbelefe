@@ -143,7 +143,6 @@ class CloneManager:
                 upsert=True,
             )
 
-        # Match the original bot's language, start image, caption and button layout.
         text = await lang.get_lang(message.chat.id)
         if len(message.command) > 1 and message.command[1] == "help":
             return await message.reply_text(
@@ -157,38 +156,26 @@ class CloneManager:
                 "/stop - Yayını durdur"
             )
 
+        if len(message.command) > 1 and message.command[1] == "donate":
+            return await app.send_message(
+                message.chat.id,
+                f"Bağış yapmak için Eltiler Müzik ana botunu aç: {main}?start=donate"
+            )
+
         caption = (
             text["start_pm"].format(message.from_user.first_name, client.me.first_name)
             if private
             else text["start_gp"].format(client.me.first_name)
         )
-
         rows = [
-            [types.InlineKeyboardButton(
-                text=text["add_me"], url=f"{clone_link}?startgroup=true"
-            )],
-            [types.InlineKeyboardButton(text=text["help"], url=f"{clone_link}?start=help")],
-            [types.InlineKeyboardButton(
-                text="🤖 Clone Oluştur", url=f"{main}?start=clone"
-            )],
+            [types.InlineKeyboardButton(text=text["add_me"], url=f"{clone_link}?startgroup=true")],
+            [types.InlineKeyboardButton(text="🔴 🆘 " + text["help"], url=f"{clone_link}?start=help")],
+            [types.InlineKeyboardButton(text="⭐ 50 Stars ile Bağış Yap", url=f"{main}?start=donate")],
             [
-                types.InlineKeyboardButton(text=text["support"], url=config.SUPPORT_CHAT),
-                types.InlineKeyboardButton(text=text["channel"], url=config.SUPPORT_CHANNEL),
+                types.InlineKeyboardButton(text=text["channel"], url="https://t.me/sancakmain"),
+                types.InlineKeyboardButton(text=text["source"], url="https://t.me/byatillaozturk"),
             ],
         ]
-        if private:
-            rows.append([
-                types.InlineKeyboardButton(
-                    text=text["source"], url="https://t.me/ellendiniz"
-                )
-            ])
-        else:
-            rows.append([
-                types.InlineKeyboardButton(
-                    text=text["language"], url=f"{main}?start=help"
-                )
-            ])
-
         keyboard = types.InlineKeyboardMarkup(rows)
         await message.reply_photo(
             photo=config.START_IMG,
