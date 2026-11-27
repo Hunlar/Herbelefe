@@ -55,6 +55,7 @@ class CloneManager:
             parse_mode=enums.ParseMode.HTML,
         )
         client.add_handler(MessageHandler(self.start_handler, filters.command("start")))
+        client.add_handler(MessageHandler(self.new_member_handler, filters.new_chat_members))
         client.add_handler(MessageHandler(self.play_handler, filters.command(["play", "vplay", "video"])))
         client.add_handler(MessageHandler(self.stop_handler, filters.command(["stop", "end"])))
         client.add_handler(MessageHandler(self.pause_handler, filters.command("pause")))
@@ -79,6 +80,14 @@ class CloneManager:
                 })
             except Exception:
                 logger.exception("Could not start clone bot %s", doc.get("username"))
+
+    async def new_member_handler(self, client, message):
+        if any(member.id == client.me.id for member in (message.new_chat_members or [])):
+            await self.collection.database.clone_chats.update_one(
+                {"bot_id": client.clone_id, "chat_id": message.chat.id},
+                {"$set": {"bot_id": client.clone_id, "chat_id": message.chat.id}},
+                upsert=True,
+            )
 
     async def call_update(self, _, update):
         if isinstance(update, call_types.StreamEnded):
