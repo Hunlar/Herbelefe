@@ -3,6 +3,8 @@
 # This file is part of AnonXMusic
 
 
+import asyncio
+
 from ntgcalls import (ConnectionNotFound, TelegramServerError,
                       RTMPStreamingUnsupported, ConnectionError,
                       TransportParseException)
@@ -211,9 +213,16 @@ class TgCall(PyTgCalls):
 
     async def boot(self) -> None:
         PyTgCallsSession.notice_displayed = True
-        for ub in userbot.clients:
+        async def start_call_client(ub):
             client = PyTgCalls(ub, cache_duration=100)
             await client.start()
-            self.clients.append(client)
             await self.decorators(client)
+            return client
+
+        # Initialize voice-call engines concurrently so both assistant accounts
+        # are ready as early as possible after process startup.
+        if userbot.clients:
+            self.clients.extend(await asyncio.gather(
+                *(start_call_client(ub) for ub in userbot.clients)
+            ))
         logger.info("PyTgCalls client(s) started.")
