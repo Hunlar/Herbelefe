@@ -100,7 +100,7 @@ class TgCall(PyTgCalls):
                     media.user,
                 )
                 play_emoji, _ = await random_pack_emoji()
-                text = f"{play_emoji} {text}"
+                text = f"{play_emoji} {text}\\n\\n<b>Destek için inceleyin:</b> @SancakMain
                 keyboard = buttons.controls(chat_id)
                 try:
                     if _thumb:
